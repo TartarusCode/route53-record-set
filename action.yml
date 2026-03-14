@@ -6,11 +6,21 @@ branding:
 description: Submit Route 53 Record Sets with enhanced validation and error handling
 inputs:
   aws_access_key_id:
-    description: The AWS access key ID for authentication
+    description: >-
+      AWS access key ID. Prefer OIDC via aws-actions/configure-aws-credentials
+      instead of long-lived keys.
     required: false
+    deprecationMessage: >-
+      Use OIDC federation with aws-actions/configure-aws-credentials@v4 instead
+      of passing static access keys.
   aws_secret_access_key:
-    description: The AWS secret access key for authentication
+    description: >-
+      AWS secret access key. Prefer OIDC via aws-actions/configure-aws-credentials
+      instead of long-lived keys.
     required: false
+    deprecationMessage: >-
+      Use OIDC federation with aws-actions/configure-aws-credentials@v4 instead
+      of passing static access keys.
   aws_route53_hosted_zone_id:
     description: The ID of the hosted zone where the record set will be created
     required: true

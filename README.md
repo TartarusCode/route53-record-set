@@ -17,18 +17,48 @@ Based on [Roosterfish/aws-route53-record-set-action](https://github.com/Roosterf
 
 ## Get Started
 
-### Basic Usage
+### Recommended Usage (OIDC — no long-lived secrets)
 
-A new AWS Route 53 Record Set can be created with the following workflow syntax:
+Use [aws-actions/configure-aws-credentials](https://github.com/aws-actions/configure-aws-credentials) with OIDC federation to avoid storing static AWS keys:
 
 ```yaml
 jobs:
   aws_route53:
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@8df5847569e6427dd6c4fb1cf565c83acfa8afa7 # v6.0.0
+        with:
+          role-to-assume: arn:aws:iam::123456789012:role/Route53Role
+          aws-region: us-east-1
+
+      - name: "Create an A record set"
+        uses: BGarber42/route53-record-set@v1  # pin to a release tag or full SHA
+        with:
+          aws_route53_hosted_zone_id: ${{ secrets.AWS_ROUTE53_HOSTED_ZONE_ID }}
+          aws_route53_rr_action: "CREATE"
+          aws_route53_rr_name: "your-fqdn.example.com"
+          aws_route53_rr_type: "A"
+          aws_route53_rr_ttl: "300"
+          aws_route53_rr_value: "1.2.3.4"
+```
+
+### Basic Usage (static keys)
+
+> **Note:** Static access keys are supported but discouraged. Prefer OIDC above.
+
+```yaml
+jobs:
+  aws_route53:
+    runs-on: ubuntu-latest
+    permissions: {}
     steps:
       - name: "Create an A record set"
-        uses: BGarber42/route53-record-set@master
-        with: 
+        uses: BGarber42/route53-record-set@v1  # pin to a release tag or full SHA
+        with:
           aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws_route53_hosted_zone_id: ${{ secrets.AWS_ROUTE53_HOSTED_ZONE_ID }}
@@ -45,12 +75,19 @@ jobs:
 jobs:
   aws_route53:
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
     steps:
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@8df5847569e6427dd6c4fb1cf565c83acfa8afa7 # v6.0.0
+        with:
+          role-to-assume: arn:aws:iam::123456789012:role/Route53Role
+          aws-region: us-east-1
+
       - name: "Update CNAME record with wait"
-        uses: BGarber42/route53-record-set@master
-        with: 
-          aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        uses: BGarber42/route53-record-set@v1  # pin to a release tag or full SHA
+        with:
           aws_route53_hosted_zone_id: ${{ secrets.AWS_ROUTE53_HOSTED_ZONE_ID }}
           aws_route53_rr_action: "UPSERT"
           aws_route53_rr_name: "api.example.com"
@@ -60,12 +97,30 @@ jobs:
           aws_route53_rr_comment: "Updated via GitHub Actions"
           aws_route53_wait: "true"
         id: route53_update
-      
+
       - name: "Check result"
         run: |
           echo "Change ID: ${{ steps.route53_update.outputs.change_id }}"
           echo "Status: ${{ steps.route53_update.outputs.status }}"
 ```
+
+## Security
+
+### Principle of Least Privilege
+
+When consuming this action, lock down your workflow permissions to only what is needed:
+
+```yaml
+permissions:
+  id-token: write   # only if using OIDC
+  contents: read     # only if you need to check out code
+```
+
+If your job does not need any GitHub token permissions, set `permissions: {}`.
+
+### Pin Your References
+
+Always reference this action (and any third-party action) by a full SHA or release tag — never by a branch name like `@master`.
 
 ## GitHub Action Inputs
 
@@ -73,8 +128,8 @@ The behavior of this Action can be modified with the following Inputs:
 
 | Name | Description | Choices | Required | Default |
 |------|-------------|---------|----------|---------|
-| `aws_access_key_id` | The AWS access key ID for authentication | | No | |
-| `aws_secret_access_key` | The AWS secret access key for authentication | | No | |
+| `aws_access_key_id` | AWS access key ID (deprecated — prefer OIDC) | | No | |
+| `aws_secret_access_key` | AWS secret access key (deprecated — prefer OIDC) | | No | |
 | `aws_route53_hosted_zone_id` | The ID of the hosted zone where the record set will be created | | Yes | |
 | `aws_route53_rr_action` | The action to perform on the record set | `CREATE`, `DELETE`, `UPSERT` | Yes | |
 | `aws_route53_rr_name` | The fully qualified domain name for the record set | | Yes | |
@@ -125,18 +180,20 @@ The action includes comprehensive error handling for:
 
 ## Best Practices
 
-1. **Use Secrets**: Always store AWS credentials as GitHub secrets
-2. **Validate Inputs**: Ensure all required parameters are provided
-3. **Use Appropriate TTL**: Set TTL based on your DNS requirements
-4. **Wait for Changes**: Use the wait parameter for critical changes
-5. **Add Comments**: Include descriptive comments for audit trails
-6. **Test in Staging**: Test changes in a staging environment first
+1. **Use OIDC**: Prefer OIDC federation over static AWS access keys
+2. **Pin References**: Always reference actions by SHA or release tag
+3. **Least Privilege**: Set explicit `permissions` on every job
+4. **Use Secrets**: Never hardcode credentials — use GitHub encrypted secrets
+5. **Use Appropriate TTL**: Set TTL based on your DNS requirements
+6. **Wait for Changes**: Use the wait parameter for critical changes
+7. **Add Comments**: Include descriptive comments for audit trails
+8. **Test in Staging**: Test changes in a staging environment first
 
 ## Troubleshooting
 
 ### Common Issues
 
-1. **Authentication Errors**: Ensure AWS credentials are properly configured
+1. **Authentication Errors**: Ensure AWS credentials are properly configured (OIDC role trust policy or static keys)
 2. **Invalid Hosted Zone**: Verify the hosted zone ID is correct
 3. **Permission Errors**: Ensure IAM permissions include Route 53 access
 4. **TTL Validation**: TTL must be between 0 and 2147483647
