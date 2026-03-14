@@ -50,10 +50,37 @@ inputs:
 outputs:
   change_id:
     description: The ID of the submitted change
+    value: ${{ steps.run.outputs.change_id }}
   status:
     description: The status of the change operation
+    value: ${{ steps.run.outputs.status }}
   error:
     description: Error message if the operation fails
+    value: ${{ steps.run.outputs.error }}
 runs:
-  using: docker
-  image: Dockerfile
+  using: composite
+  steps:
+    - name: Install dependencies
+      shell: bash
+      run: |
+        python3 -m venv "${{ github.action_path }}/.venv"
+        source "${{ github.action_path }}/.venv/bin/activate"
+        pip install --quiet --no-cache-dir -r "${{ github.action_path }}/requirements.txt"
+
+    - name: Run Route 53 change
+      id: run
+      shell: bash
+      env:
+        INPUT_AWS_ACCESS_KEY_ID: ${{ inputs.aws_access_key_id }}
+        INPUT_AWS_SECRET_ACCESS_KEY: ${{ inputs.aws_secret_access_key }}
+        INPUT_AWS_ROUTE53_HOSTED_ZONE_ID: ${{ inputs.aws_route53_hosted_zone_id }}
+        INPUT_AWS_ROUTE53_RR_ACTION: ${{ inputs.aws_route53_rr_action }}
+        INPUT_AWS_ROUTE53_RR_NAME: ${{ inputs.aws_route53_rr_name }}
+        INPUT_AWS_ROUTE53_RR_TYPE: ${{ inputs.aws_route53_rr_type }}
+        INPUT_AWS_ROUTE53_RR_TTL: ${{ inputs.aws_route53_rr_ttl }}
+        INPUT_AWS_ROUTE53_RR_VALUE: ${{ inputs.aws_route53_rr_value }}
+        INPUT_AWS_ROUTE53_RR_COMMENT: ${{ inputs.aws_route53_rr_comment }}
+        INPUT_AWS_ROUTE53_WAIT: ${{ inputs.aws_route53_wait }}
+      run: |
+        source "${{ github.action_path }}/.venv/bin/activate"
+        python3 "${{ github.action_path }}/change.py"

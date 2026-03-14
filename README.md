@@ -8,6 +8,7 @@ Based on [Roosterfish/aws-route53-record-set-action](https://github.com/Roosterf
 
 ## Features
 
+- **Composite Action**: Runs natively on the runner — no Docker build overhead
 - **Enhanced Validation**: Comprehensive input validation for all parameters
 - **Error Handling**: Detailed error messages and proper exception handling
 - **Logging**: Structured logging for better debugging and monitoring
